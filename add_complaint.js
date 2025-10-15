@@ -352,7 +352,7 @@ function updateUploadStates() {
 
 // Form submission
 document.getElementById('complaintForm').addEventListener('submit', function(e) {
-    e.preventDefault();
+    // e.preventDefault();
     
     const category = document.getElementById('category').value;
     const subcategory = document.getElementById('subcategory').value;
@@ -380,11 +380,11 @@ document.getElementById('complaintForm').addEventListener('submit', function(e) 
         }
     }
     
-    // Generate tracking number
-    const trackingNumber = 'ERK-' + Date.now().toString(36).toUpperCase() + 
-                          Math.random().toString(36).substring(2, 5).toUpperCase();
+    // // Generate tracking number
+    // const trackingNumber = 'ERK-' + Date.now().toString(36).toUpperCase() + 
+    //                       Math.random().toString(36).substring(2, 5).toUpperCase();
     
-    // Store tracking number and redirect
-    localStorage.setItem('trackingNumber', trackingNumber);
-    window.location.href = 'tracking_page.html';
+    // // Store tracking number and redirect
+    // localStorage.setItem('trackingNumber', trackingNumber);
+    // window.location.href = 'tracking_page.html';
 });

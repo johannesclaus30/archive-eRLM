@@ -1,34 +1,97 @@
 <?php
-
 session_start();
-
 include("connections.php");
 
+// // Redirect logged-in users
+// if (isset($_SESSION["User_Email"])) {
+//     $User_Email = $_SESSION["User_Email"];
+//     $stmt = mysqli_prepare($connections, "SELECT User_Type FROM user WHERE User_Email = ?");
+//     mysqli_stmt_bind_param($stmt, "s", $User_Email);
+//     mysqli_stmt_execute($stmt);
+//     $result = mysqli_stmt_get_result($stmt);
+//     $user = mysqli_fetch_assoc($result);
+//     mysqli_stmt_close($stmt);
 
-if(isset($_SESSION["User_Email"])) {
-    $User_Email = $_SESSION["User_Email"];
-    $query_account_type = mysqli_query($connections, "SELECT * FROM user WHERE User_Email='$User_Email'");
-    $get_account_type = mysqli_fetch_assoc($query_account_type);
+//     if ($user) {
+//         $account_type = $user["User_Type"];
+//         if ($account_type == 1) {
+//             header("Location: Admin");
+//             exit;
+//         } else {
+//             header("Location: User/user_dashboard");
+//             exit;
+//         }
+//     }
+// }
 
-    $account_type = $get_account_type["User_Type"];
-    if($account_type == 1) {
-        echo "<script>window.location.href='Admin';</script>";
-    } else {
-        echo "<script>window.location.href='Users';</script>";
-    }
-}
-
-
-$User_ID = $User_Email = $User_Password = "";
+// Initialize variables
+$User_Email = $User_Password = "";
 $User_EmailErr = $User_PasswordErr = "";
 
-if(isset($_POST["User_Email"])) {{
-    
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    // Read and validate inputs
+    $User_Email = trim($_POST["User_Email"] ?? '');
+    $User_Password = $_POST["User_Password"] ?? '';
+
+    if (empty($User_Email)) {
+        $User_EmailErr = "Email is required";
+    }
+    if (empty($User_Password)) {
+        $User_PasswordErr = "Password is required";
+    }
+
+    // Proceed if no validation errors
+    if ($User_Email && $User_Password) {
+        // Check if email exists using prepared statement
+        $stmt = mysqli_prepare($connections, "SELECT User_ID, User_Email, User_Password, User_Type FROM user WHERE User_Email = ?");
+        mysqli_stmt_bind_param($stmt, "s", $User_Email);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $check_row = mysqli_num_rows($result);
+
+        if ($check_row > 0) {
+            $user = mysqli_fetch_assoc($result);
+            $db_password = $user["User_Password"];
+            $account_type = $user["User_Type"];
+
+            // Redirect based on account type
+                if ($account_type == 1) {
+                    if($db_password == $User_Password) {
+                        $_SESSION["User_Email"] = $User_Email;
+                        // Optionally store User_ID or other details in session
+                        $_SESSION["User_ID"] = $user["User_ID"];
+
+                        header("Location: Admin/admin_dashboard");
+                    } else {
+                        $User_PasswordErr = "Incorrect password!";
+                    }
+
+                } else {
+                    if (password_verify($User_Password, $db_password)) {
+                    $_SESSION["User_Email"] = $User_Email;
+                    // Optionally store User_ID or other details in session
+                    $_SESSION["User_ID"] = $user["User_ID"];
+
+                    header("Location: User/user_dashboard");
+                } else {
+                    $User_PasswordErr = "Incorrect password!";
+                }
+                
+            }
+        } else {
+            $User_EmailErr = "Email not found!";
+        }
+        mysqli_stmt_close($stmt);
+    }
 }
-
-if(isset($_POST["User_Emai"]))
-
 ?>
+
+<style>
+    .error{
+        color:red;
+        margin-top: 5px;
+    }
+</style>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -75,7 +138,7 @@ if(isset($_POST["User_Emai"]))
                         <p class="auth-description">Sign in to your account to continue</p>
                     </div>
 
-                    <form id="signInForm" class="auth-form">
+                    <form id="signInForm" class="auth-form" method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
                         <div class="form-group">
                             <label for="email">Email Address</label>
                             <div class="input-wrapper">
@@ -86,11 +149,13 @@ if(isset($_POST["User_Emai"]))
                                 <input 
                                     type="email" 
                                     id="email" 
-                                    name="email" 
+                                    name="User_Email"
+                                    value="<?php echo htmlspecialchars($User_Email); ?>"
                                     placeholder="your.email@example.com"
                                     required
                                 >
                             </div>
+                            <span class="error"><?php echo $User_EmailErr; ?></span>
                         </div>
 
                         <div class="form-group">
@@ -103,7 +168,8 @@ if(isset($_POST["User_Emai"]))
                                 <input 
                                     type="password" 
                                     id="password" 
-                                    name="password" 
+                                    name="User_Password" 
+                                    value="<?php echo htmlspecialchars($User_Password); ?>"
                                     placeholder="Enter your password"
                                     required
                                 >
@@ -114,8 +180,8 @@ if(isset($_POST["User_Emai"]))
                                     </svg>
                                 </button>
                             </div>
+                            <span class="error"><?php echo $User_PasswordErr; ?></span>
                         </div>
-
                         <div class="form-options">
                             <label class="remember-me">
                                 <input type="checkbox" id="remember">
@@ -150,23 +216,11 @@ if(isset($_POST["User_Emai"]))
                         <p>Don't have an account? <a href="sign_up">Sign Up</a></p>
                     </div>
 
-                    <div class="demo-credentials">
-                        <svg class="demo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="16" x2="12" y2="12"></line>
-                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                        </svg>
-                        <div>
-                            <strong>Demo Admin Access</strong>
-                            <p>Email: admin@ereklamo.com</p>
-                            <p>Password: admin123</p>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <script src="sign_in_script.js"></script>
+    <script src="sign_in2.js"></script>
 </body>
 </html>

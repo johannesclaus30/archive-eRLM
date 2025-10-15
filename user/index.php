@@ -1,16 +1,5 @@
 <?php
 
-session_start();
-
-if(isset($_SESSION["User_ID"])) {
-    $User_ID = $_SESSION["User_ID"];
-    include("../connections.php");
-
-    $get_record = mysqli_query($connections,"SELECT * FROM user WHERE User_ID = '$User_ID'");
-    while($row_edit = mysqli_fetch_assoc($get_record)) {
-        $User_Email = $row_edit['User_Email'];
-    }
-}
 
 
 
@@ -34,7 +23,7 @@ if(isset($_SESSION["User_ID"])) {
                     <img class="ereklamo-logo" src="../logos/eReklamo_White.png" />
                 </div>
                 <nav class="nav">
-                    <span class="user-email" id="userEmail"><?php echo $User_Email; ?></span>
+                    <span class="user-email" id="userEmail">user@example.com</span>
                     <a href="../index" class="btn btn-outline-white">Home</a>
                     <a href="../sign_in" class="btn btn-outline-white">Sign Out</a>
                 </nav>
