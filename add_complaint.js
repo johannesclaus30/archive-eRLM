@@ -97,11 +97,6 @@ document.getElementById('category').addEventListener('change', function() {
     }
 });
 
-// Location cascading dropdowns
-// Replace the Fetch API calls with your own implementation
-
-
-
 // Character counter for description
 document.getElementById('description').addEventListener('input', function() {
     document.getElementById('charCount').textContent = this.value.length;
@@ -170,17 +165,6 @@ window.removePhoto = function(index) {
     updateUploadStates();
 }
 
-window.clearAllPhotos = function() {
-    if (photos.length === 0) return;
-    
-    if (confirm(`Are you sure you want to remove all ${photos.length} photo(s)?`)) {
-        photos = [];
-        document.getElementById('photoPreview').innerHTML = '';
-        document.getElementById('photoInput').value = '';
-        updateUploadStates();
-    }
-}
-
 // Video upload handler
 document.getElementById('videoUpload').addEventListener('click', function() {
     if (photos.length > 0) {
@@ -232,32 +216,6 @@ window.removeVideo = function() {
     document.getElementById('videoPreview').innerHTML = '';
     document.getElementById('videoInput').value = '';
     updateUploadStates();
-}
-
-window.clearAllAttachments = function() {
-    const hasPhotos = photos.length > 0;
-    const hasVideo = video !== null;
-    
-    if (!hasPhotos && !hasVideo) return;
-    
-    let message = 'Are you sure you want to remove all attachments?';
-    if (hasPhotos && hasVideo) {
-        message = `Are you sure you want to remove all ${photos.length} photo(s) and 1 video?`;
-    } else if (hasPhotos) {
-        message = `Are you sure you want to remove all ${photos.length} photo(s)?`;
-    } else if (hasVideo) {
-        message = 'Are you sure you want to remove the video?';
-    }
-    
-    if (confirm(message)) {
-        photos = [];
-        video = null;
-        document.getElementById('photoPreview').innerHTML = '';
-        document.getElementById('videoPreview').innerHTML = '';
-        document.getElementById('photoInput').value = '';
-        document.getElementById('videoInput').value = '';
-        updateUploadStates();
-    }
 }
 
 // Update upload areas based on current state
@@ -352,12 +310,11 @@ function updateUploadStates() {
 
 // Form submission
 document.getElementById('complaintForm').addEventListener('submit', function(e) {
-    // e.preventDefault();
-    
+    e.preventDefault(); // Prevent default form submission for custom handling
+
     const category = document.getElementById('category').value;
     const subcategory = document.getElementById('subcategory').value;
     const description = document.getElementById('description').value;
-    // const location = document.getElementById('location').value;
     const otherCategory = document.getElementById('otherCategory').value;
     
     // Validate required fields
@@ -379,12 +336,33 @@ document.getElementById('complaintForm').addEventListener('submit', function(e) 
             return;
         }
     }
+
+    // Create FormData object to send files and form data
+    const formData = new FormData(this);
     
-    // // Generate tracking number
-    // const trackingNumber = 'ERK-' + Date.now().toString(36).toUpperCase() + 
-    //                       Math.random().toString(36).substring(2, 5).toUpperCase();
-    
-    // // Store tracking number and redirect
-    // localStorage.setItem('trackingNumber', trackingNumber);
-    // window.location.href = 'tracking_page.html';
+    // Append photos to FormData
+    photos.forEach((photo, index) => {
+        formData.append('photoInput[]', photo); // Use array notation for multiple files
+    });
+
+    // Append video if it exists
+    if (video) {
+        formData.append('videoInput', video);
+    }
+
+    // Send form data using Fetch API
+    fetch(this.action, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.text())
+    .then(data => {
+        console.log('Server response:', data); // Log server response for debugging
+        alert('Complaint submitted successfully!'); // Temporary alert
+        window.location.href = 'add_complaint?notify=Complaint submitted successfully!'; // Redirect
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('There was an error submitting the complaint.');
+    });
 });

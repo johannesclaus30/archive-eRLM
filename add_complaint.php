@@ -1,37 +1,46 @@
-<script src="../Admin/js/jQuery.js"></script>
-
-<style>
-    img {
-        height: 150px;
-    }
-</style>
-
 <?php
 session_start();
 include("connections.php");
 
-// Handle file uploads
-$target_dir = "complaint_photos/";
-$uploadErr = "";
+if (isset($_SESSION["User_ID"])) {
+    $User_ID = $_SESSION["User_ID"];
+    // $get_record = mysqli_query($connections, "SELECT * FROM user WHERE User_ID='$User_ID'");
+    // while($row_edit = mysqli_fetch_assoc($get_record)) {
+    //     $User_Email = $row_edit["User_Email"];
+    // }
+    $stmt = mysqli_prepare($connections, "SELECT User_Email FROM user WHERE User_ID = ?");
+    $stmt->bind_param("i", $User_ID);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row_edit = $result->fetch_assoc();
+    $stmt->close();
+    $User_Email = $row_edit["User_Email"];
 
 
+    
+
+} else {
+    $User_ID = 1; // Guest
+
+    $User_Email = "Guest User";
+}
+
+    $target_dir = "post_photos/";
+    // Ensure the upload directory exists
+    if (!is_dir($target_dir)) {
+        @mkdir($target_dir, 0755, true);
+    }
+    
+
+const MAX_FILES = 5; // Max files per upload request
+const MAX_BYTES_PER_FILE = 5 * 1024 * 1024; // 5 MB per file
 
 $Complaint_Location_ID = $Complaint_Category_Name = $Complaint_SubCategory_Name = $Complaint_Description = $Complaint_TrackingNumber = $Complaint_Status = $Complaint_Region_Name = $Complaint_Province_Name = $Complaint_City_Name = $Complaint_Barangay_Name = $Complaint_Street = $Complaint_Landmark = $Complaint_ZIP = "";
 $Complaint_CategoryErr = $Complaint_SubCategoryErr = $Complaint_DescriptionErr = $Complaint_RegionErr = $Complaint_ProvinceErr = $Complaint_CityErr = $Complaint_BarangayErr = $Complaint_StreetErr = "";
 $success_message = $error_message = "";
-
 $Complaint_ID = $File_Path = $File_Type = "";
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-
-    // Capture and sanitize inputs
-    if(isset($_SESSION["User_ID"])) {
-        $User_ID = $_SESSION["User_ID"];
-    } else {
-        // For guest users, you might want to handle differently or force login
-        $User_ID = 0; // or redirect to login
-    }
-
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $Complaint_Category_Name = $_POST["Complaint_Category_Name"] ?? '';
     $Complaint_SubCategory_Name = $_POST["Complaint_SubCategory_Name"] ?? '';
     $Complaint_Description = $_POST["Complaint_Description"] ?? '';
@@ -70,77 +79,102 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Proceed if no validation errors
-    if ($Complaint_Category_Name && $Complaint_SubCategory_Name && $Complaint_Description ) {
+    if ($Complaint_Category_Name && $Complaint_SubCategory_Name && $Complaint_Description) {
+        // Insert into complaint_location
+        $stmt = mysqli_prepare($connections, "INSERT INTO complaint_location (Complaint_Region, Complaint_Province, Complaint_City, Complaint_Barangay, Complaint_Street, Complaint_Landmark, Complaint_ZIP) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "sssssss", $Complaint_Region_Name, $Complaint_Province_Name, $Complaint_City_Name, $Complaint_Barangay_Name, $Complaint_Street, $Complaint_Landmark, $Complaint_ZIP);
+        mysqli_stmt_execute($stmt);
+        $Complaint_Location_ID = mysqli_insert_id($connections);
+        mysqli_stmt_close($stmt);
 
-    $stmt = mysqli_prepare($connections, "INSERT INTO complaint_location (Complaint_Region, Complaint_Province, Complaint_City, Complaint_Barangay, Complaint_Street, Complaint_Landmark, Complaint_ZIP) VALUES (?, ?, ?, ?, ?, ?, ?)");
-
-    mysqli_stmt_bind_param($stmt, "sssssss", $Complaint_Region_Name, $Complaint_Province_Name, $Complaint_City_Name, $Complaint_Barangay_Name, $Complaint_Street, $Complaint_Landmark, $Complaint_ZIP);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
-
-    if($Complaint_Category_Name == "Others") {
-        $Complaint_SubCategory_Name = $_POST["Complaint_OtherSubcategory"] ?? '';
-    } else {
-        $Complaint_SubCategory_Name = $_POST["Complaint_SubCategory_Name"] ?? '';
-    }
-
-    //Use prepared statements to prevent SQL injection
-    $stmt = mysqli_prepare($connections, "INSERT INTO complaint (User_ID, Complaint_Location_ID, Complaint_Category, Complaint_SubCategory, Complaint_Description, Complaint_TrackingNumber, Complaint_Status, Created_At) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-
-    // Get the last inserted User_ID
-    $Complaint_Location_ID = mysqli_insert_id($connections);
-    date_default_timezone_set ("Asia/Manila");
-    $current_time = date('Y-m-d H:i:s');
-    $Complaint_TrackingNumber = "ERK-" . strtoupper(bin2hex(random_bytes(5))); // Generate tracking number with ERK- prefix
-    $Complaint_Status = "pending"; // Default status
-
-    mysqli_stmt_bind_param($stmt, "iissssss", $User_ID, $Complaint_Location_ID, $Complaint_Category_Name, $Complaint_SubCategory_Name, $Complaint_Description, $Complaint_TrackingNumber, $Complaint_Status, $current_time);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
-
-    // Get the last inserted Complaint_ID
-    $Complaint_ID = mysqli_insert_id($connections);
-
-    // Handle file uploads
-    $target_file = $target_dir . "/" . basename($_FILES["complaint_photo"]["name"]);
-    $uploadOk = 1;
-
-    if (file_exists($target_file)) {
-        $target_file = $target_dir . rand(1,9) . rand(1,9) . rand(1,9) . rand(1,9) . "_" . basename($_FILES["complaint_photo"]["name"]);
-        $uploadOk = 1;
-    }
-    $image_FileType = pathinfo($target_file, PATHINFO_EXTENSION);
-
-    if($_FILES["complaint_photo"]["size"] > 10000000) {
-        $uploadErr = "Sorry, your file is too large. Maximum size is 10MB.";
-        $uploadOk = 0;
-    }
-    if($imageFileType != "jpg" && $imageFileType != "png" && $imageFileType != "jpeg" && $imageFileType != "gif") {
-        $uploadErr = "Sorry, only JPG, JPEG, PNG & GIF files are allowed.";
-        $uploadOk = 0;
-    }
-
-    if ($uploadOk == 1) {
-        if (move_uploaded_file($_FILES["complaint_photo"]["tmp_name"], $target_file)) {
-
-            mysqli_query($connections, "INSERT INTO complaint_media (Complaint_ID, File_Path, File_Type) VALUES ('$Complaint_ID', '$target_file', '$imageFileType')");
-            $notify = "<font color='green'>Your complaint photo has been uploaded! </font>";
-            echo "<script>window.location.href='MyAccount?notify=$notify';</script>";
+        // Handle subcategory for "Others"
+        if ($Complaint_Category_Name == "Others") {
+            $Complaint_SubCategory_Name = $_POST["Complaint_OtherSubcategory"] ?? '';
         } else {
-            echo "Sorry, there was an error uploading your file.";
+            $Complaint_SubCategory_Name = $_POST["Complaint_SubCategory_Name"] ?? '';
         }
+
+        // Insert complaint
+        $stmt = mysqli_prepare($connections, "INSERT INTO complaint (User_ID, Complaint_Location_ID, Complaint_Category, Complaint_SubCategory, Complaint_Description, Complaint_TrackingNumber, Complaint_Status, Created_At) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        date_default_timezone_set("Asia/Manila");
+        $current_time = date('Y-m-d H:i:s');
+        $Complaint_TrackingNumber = "ERK-" . strtoupper(bin2hex(random_bytes(5)));
+        $Complaint_Status = "pending";
+        mysqli_stmt_bind_param($stmt, "iissssss", $User_ID, $Complaint_Location_ID, $Complaint_Category_Name, $Complaint_SubCategory_Name, $Complaint_Description, $Complaint_TrackingNumber, $Complaint_Status, $current_time);
+        mysqli_stmt_execute($stmt);
+        $Complaint_ID = mysqli_insert_id($connections); // Store Complaint_ID
+        mysqli_stmt_close($stmt);
+
+        $uploadOk = 0;
+
+// === 1️⃣ VIDEO UPLOAD HANDLING ===
+if (isset($_FILES['videoInput']) && $_FILES['videoInput']['error'] === UPLOAD_ERR_OK) {
+    $videoDir = "post_videos/";
+    $videoFile = $_FILES['videoInput'];
+    $videoName = basename($videoFile['name']);
+    $videoTmpName = $videoFile['tmp_name'];
+    $videoSize = $videoFile['size'];
+    $videoExt = strtolower(pathinfo($videoName, PATHINFO_EXTENSION));
+    $allowedVideoExt = ['mp4', 'mov', 'avi', 'wmv'];
+
+    if (in_array($videoExt, $allowedVideoExt)) {
+        if ($videoSize <= 50 * 1024 * 1024) { // 50MB max
+            $newVideoName = uniqid('video_', true) . '.' . $videoExt;
+            $videoPath = $videoDir . $newVideoName;
+
+            if (move_uploaded_file($videoTmpName, $videoPath)) {
+                $insertVideo = $connections->prepare(
+                    "INSERT INTO complaint_media (Complaint_ID, File_Path, File_Type, Upload_Date) VALUES (?, ?, ?, NOW())"
+                );
+                $insertVideo->bind_param("iss", $Complaint_ID, $videoPath, $videoExt);
+                $insertVideo->execute();
+            }
+        } else {
+            echo "<script>alert('Video file exceeds 50MB limit.');</script>";
+        }
+    } else {
+        echo "<script>alert('Invalid video format. Allowed: MP4, MOV, AVI, WMV.');</script>";
     }
-
-
-    echo "<script language='javascript'>alert('New Complaint has been inserted!')</script>";
-    echo "<script>window.location.href='index';</script>";
-
-
-    }
-
 }
 
+// === 2️⃣ PHOTO UPLOAD HANDLING ===
+if (isset($_FILES['photoInput'])) {
+    $photoDir = "post_photos/";
+    $allowedPhotoExt = ['jpg', 'jpeg', 'png', 'gif'];
+
+    foreach ($_FILES['photoInput']['tmp_name'] as $key => $tmpName) {
+        if ($_FILES['photoInput']['error'][$key] === UPLOAD_ERR_OK) {
+            $photoName = basename($_FILES['photoInput']['name'][$key]);
+            $photoExt = strtolower(pathinfo($photoName, PATHINFO_EXTENSION));
+            $photoSize = $_FILES['photoInput']['size'][$key];
+
+            if (in_array($photoExt, $allowedPhotoExt) && $photoSize <= 10 * 1024 * 1024) {
+                $newPhotoName = uniqid('photo_', true) . '.' . $photoExt;
+                $photoPath = $photoDir . $newPhotoName;
+
+                if (move_uploaded_file($tmpName, $photoPath)) {
+                    $insertPhoto = $connections->prepare(
+                        "INSERT INTO complaint_media (Complaint_ID, File_Path, File_Type, Upload_Date) VALUES (?, ?, ?, NOW())"
+                    );
+                    $insertPhoto->bind_param("iss", $Complaint_ID, $photoPath, $photoExt);
+                    $insertPhoto->execute();
+                }
+            }
+        }
+    }
+}
+    // ✅ If no upload errors occurred, show success message
+    echo "<script>alert('Complaint submitted successfully!');</script>";
+    echo "<script>window.location.href='add_complaint?notify=Complaint submitted successfully!';</script>";
+    }
+}
 ?>
+
+<style>
+    img {
+        height: 150px;
+    }
+</style>
 
 
 <style>
@@ -170,14 +204,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <img class="ereklamo-logo" src="logos/eReklamo_White.png" />
                 </div>
                 <div class="header-right">
-                    <span class="user-status" id="userStatus">Guest User</span>
-                    <a href="index" class="btn btn-outline">
-                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <line x1="19" y1="12" x2="5" y2="12"></line>
-                            <polyline points="12 19 5 12 12 5"></polyline>
-                        </svg>
-                        Back
-                    </a>
+                    <span class="user-status" id="userStatus"><?php echo $User_Email; ?></span>
+                    <?php if ($User_Email === "Guest User") {
+                        echo '
+                            <a href="index" class="btn btn-outline">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <line x1="19" y1="12" x2="5" y2="12"></line>
+                                <polyline points="12 19 5 12 12 5"></polyline>
+                            </svg>
+                                Back
+                            </a>
+                        ';
+                    } else {
+                        echo '
+                            <a href="user/user_dashboard" class="btn btn-outline">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <line x1="19" y1="12" x2="5" y2="12"></line>
+                                <polyline points="12 19 5 12 12 5"></polyline>
+                            </svg>
+                                Back
+                            </a>
+                        ';
+                    }                   
+                    ?>
+                    
                 </div>
             </div>
         </div>
@@ -214,7 +264,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <p class="form-description">Fill out the form below to report an issue in your community. All fields marked with * are required.</p>
                 </div>
 
-                <form id="complaintForm" class="complaint-form" method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" enctype="multipart/form-data">
+                <form id="complaintForm" class="complaint-form" method="POST" action="add_complaint.php" enctype="multipart/form-data">
                     <!-- Category Section -->
                     <div class="form-section">
                         <h3 class="section-title">
@@ -373,7 +423,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 </svg>
                                 <p class="upload-text">Click to upload photos or drag and drop</p>
                                 <p class="upload-hint">PNG, JPG up to 10MB each</p>
-                                <input type="file" name="File_Path" value="<?php echo $target_file; ?>" id="photoInput" accept="image/*" multiple hidden>
+                                <input type="file" id="photoInput" name="photoInput[]" multiple accept=".jpg,.jpeg,.png,.gif" style="display: none;">
                             </div>
                             <div id="photoPreview" class="preview-grid"></div>
                             <p class="upload-info" id="photoInfo" style="display: none;">
@@ -398,7 +448,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 </svg>
                                 <p class="upload-text">Click to upload video or drag and drop</p>
                                 <p class="upload-hint">MP4, MOV up to 50MB</p>
-                                <input type="file" name="File_Path" id="videoInput" accept="video/*" hidden>
+                                <input type="file" id="videoInput" name="videoInput" accept=".mp4,.mov,.avi,.wmv" style="display:none;">
                             </div>
                             <div id="videoPreview"></div>
                         </div>
@@ -453,7 +503,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <button type="button" class="btn btn-outline" onclick="window.location.href='index'">
                             Cancel
                         </button>
-                        <button type="submit" class="btn btn-primary btn-large" id="submitBtn">
+                        <button type="submit" name="btnSubmit" class="btn btn-primary btn-large" id="submitBtn">
                             <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                 <polyline points="9 11 12 14 22 4"></polyline>
                                 <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
@@ -481,6 +531,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         setText(sel, ids[i]);
     });
     </script>
+
+    <script src="../Admin/js/jQuery.js"></script>
+
+</script>
 
 </body>
 </html>

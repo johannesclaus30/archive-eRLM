@@ -35,8 +35,8 @@ if(isset($_SESSION["User_ID"])) {
                 </div>
                 <nav class="nav">
                     <span class="user-email" id="userEmail"><?php echo $User_Email; ?></span>
-                    <a href="../index" class="btn btn-outline-white">Home</a>
-                    <a href="../sign_in" class="btn btn-outline-white">Sign Out</a>
+                    <a href="../account_settings" class="settings-btn">Settings</a>
+                    <a href="../signout" class="btn btn-outline-white">Sign Out</a>
                 </nav>
             </div>
         </div>
