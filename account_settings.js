@@ -1,6 +1,6 @@
 // Initialize address selector on page load
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize the Philippine address selector
+    // Initialize the Philippine address selector if available
     if (typeof window.initializeAddressSelector === 'function') {
         window.initializeAddressSelector();
     }
@@ -31,59 +31,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Initialize Philippines Address Selector for Address tab
-    if (typeof $ !== 'undefined' && $.fn.ph_locations) {
-        // $('#region').ph_locations({
-        //     'location_type': 'regions'
-        // });
-
-        // $('#region').on('change', function() {
-        //     var selectedRegion = $(this).val();
-        //     $('#province').prop('disabled', false);
-        //     $('#province').ph_locations({
-        //         'location_type': 'provinces',
-        //         'region_code': selectedRegion
-        //     });
-        //     // Reset dependent dropdowns
-        //     $('#city').prop('disabled', true).html('<option value="">Select city/municipality</option>');
-        //     $('#barangay').prop('disabled', true).html('<option value="">Select barangay</option>');
-            
-        //     // Update hidden field
-        //     setText('#region', 'User_Region_Name');
-        // });
-
-        // $('#province').on('change', function() {
-        //     var selectedProvince = $(this).val();
-        //     $('#city').prop('disabled', false);
-        //     $('#city').ph_locations({
-        //         'location_type': 'cities',
-        //         'province_code': selectedProvince
-        //     });
-        //     // Reset dependent dropdown
-        //     $('#barangay').prop('disabled', true).html('<option value="">Select barangay</option>');
-            
-        //     // Update hidden field
-        //     setText('#province', 'User_Province_Name');
-        // });
-
-        // $('#city').on('change', function() {
-        //     var selectedCity = $(this).val();
-        //     $('#barangay').prop('disabled', false);
-        //     $('#barangay').ph_locations({
-        //         'location_type': 'barangays',
-        //         'city_code': selectedCity
-        //     });
-            
-        //     // Update hidden field
-        //     setText('#city', 'User_City_Name');
-        // });
-
-        // $('#barangay').on('change', function() {
-        //     // Update hidden field
-        //     setText('#barangay', 'User_Barangay_Name');
-        // });
-    }
-
     // Initialize hidden fields with current values on page load
     ["#region", "#province", "#city", "#barangay"].forEach((sel, i) => {
         const ids = ["User_Region_Name", "User_Province_Name", "User_City_Name", "User_Barangay_Name"];
@@ -105,94 +52,65 @@ function togglePassword(inputId, iconId) {
     }
 }
 
-// Personal Information Form Submission
-document.getElementById('personalInfoForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
+// ✅ Allow normal form submissions (PHP will handle saving to DB)
+
+// Optional — add client-side checks (non-blocking)
+function validatePersonalForm() {
     const firstName = document.getElementById('firstName').value.trim();
     const lastName = document.getElementById('lastName').value.trim();
     const email = document.getElementById('email').value.trim();
-    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     if (!firstName || !lastName || !email) {
         alert('Please fill in all required fields');
-        return;
+        return false; // prevent form submission only if empty
     }
-    
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     if (!emailRegex.test(email)) {
         alert('Please enter a valid email address');
-        return;
+        return false;
     }
-    
-    // In real application, this would send data to backend
-    alert('Personal information updated successfully!');
-    console.log('Personal Info Updated:', {
-        firstName,
-        lastName,
-        email,
-        phone: document.getElementById('phone').value
-    });
-});
 
-// Address Form Submission
-document.getElementById('addressForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
+    return true; // allow PHP to handle the rest
+}
+
+function validateAddressForm() {
     const region = document.getElementById('region').value;
     const province = document.getElementById('province').value;
     const city = document.getElementById('city').value;
     const barangay = document.getElementById('barangay').value;
     const street = document.getElementById('street').value.trim();
-    
+
     if (!region || !province || !city || !barangay || !street) {
         alert('Please fill in all required address fields');
-        return;
+        return false;
     }
-    
-    // In real application, this would send data to backend
-    alert('Address information updated successfully!');
-    console.log('Address Updated:', {
-        region,
-        province,
-        city,
-        barangay,
-        street,
-        houseNumber: document.getElementById('houseNumber').value,
-        zipCode: document.getElementById('zipCode').value
-    });
-});
 
-// Password Form Submission
-document.getElementById('passwordForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
+    return true;
+}
+
+function validatePasswordForm() {
     const currentPassword = document.getElementById('currentPassword').value;
     const newPassword = document.getElementById('newPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
-    
+
     if (!currentPassword || !newPassword || !confirmPassword) {
         alert('Please fill in all password fields');
-        return;
+        return false;
     }
-    
+
     if (newPassword !== confirmPassword) {
         alert('New passwords do not match');
-        return;
+        return false;
     }
-    
+
     if (newPassword.length < 6) {
         alert('Password must be at least 6 characters long');
-        return;
+        return false;
     }
-    
-    // In real application, this would send data to backend
-    alert('Password changed successfully!');
-    
-    // Reset form
-    document.getElementById('passwordForm').reset();
-    console.log('Password Changed');
-});
+
+    return true;
+}
 
 // Add smooth scrolling for better UX
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {

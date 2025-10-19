@@ -10,6 +10,10 @@ if(isset($_SESSION["User_ID"])) {
     while($row_edit = mysqli_fetch_assoc($get_record)) {
         $User_Email = $row_edit['User_Email'];
     }
+} else {
+    // Redirect to login if not logged in
+    header("Location: ../sign_in");
+    exit();
 }
 
 

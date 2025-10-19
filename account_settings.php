@@ -2,7 +2,13 @@
 session_start();
 include("connections.php");
 
-$User_ID = $_SESSION['User_ID'] ?? ''; // Assume user is logged in
+if (!isset($_SESSION["User_ID"])) {
+    header("Location: ../login");
+    exit("User not logged in");
+}
+
+$User_ID = $_SESSION["User_ID"];
+
 $User_FirstName = $User_LastName = $User_Email = $User_PhoneNumber = $User_Region_Name = $User_Province_Name = $User_City_Name = $User_Barangay_Name = $User_Street = $User_HouseNo = $User_ZIP = "";
 $User_Region_Code = $User_Province_Code = $User_City_Code = $User_Barangay_Code = "";
 
@@ -13,17 +19,6 @@ $Current_PasswordErr = $New_PasswordErr = $Confirm_PasswordErr = "";
 if (isset($_SESSION["User_ID"])) {
 
     $User_ID = $_SESSION["User_ID"];
-    $get_record = mysqli_query($connections, "SELECT * FROM user WHERE User_ID='$User_ID'");
-    while($row_edit = mysqli_fetch_assoc($get_record)) {
-        $User_FirstName = $row_edit["User_FirstName"];
-        $User_LastName = $row_edit["User_LastName"];
-        $User_Email = $row_edit["User_Email"];
-
-        // Generate initials
-        $first_initial = !empty($User_FirstName) ? strtoupper(substr(trim($User_FirstName), 0, 1)) : "";
-        $last_initial = !empty($User_LastName) ? strtoupper(substr(trim($User_LastName), 0, 1)) : "";
-        $User_Initials = $first_initial . ($last_initial ? "" . $last_initial . "" : "");
-    }
 
     $stmt = mysqli_prepare($connections, "SELECT User_FirstName, User_LastName, User_Email, User_PhoneNumber FROM user WHERE User_ID = ?");
     mysqli_stmt_bind_param($stmt, "i", $User_ID);
@@ -88,7 +83,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
         echo "<script>alert('Personal information updated successfully!');</script>";
+    } else {
+        echo "<script>alert('Please correct the errors in the form.');</script>";
     }
+} else {
+    echo "<script>console.log('Form type: " . ($_POST['form_type'] ?? 'none') . "');</script>";
 }
 
 // Handle Address Form Submission
@@ -118,11 +117,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
 
 // Handle Password Form Submission
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POST['form_type'] === 'password') {
+
+    $stmt = mysqli_prepare($connections, "SELECT User_Password FROM user WHERE User_ID = ?");
+    mysqli_stmt_bind_param($stmt, "i", $User_ID);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+
     $currentPassword = $_POST["currentPassword"] ?? '';
     $newPassword = $_POST["newPassword"] ?? '';
     $confirmPassword = $_POST["confirmPassword"] ?? '';
 
-    if ($currentPassword === '') { $Current_PasswordErr = "Current password is required"; }
+    if (empty($currentPassword) || !password_verify($currentPassword, $row['User_Password'])) {
+        echo "<script>alert('Incorrect or missing current password. Please try again.');</script>";
+    }
+
     if ($newPassword === '') { $New_PasswordErr = "New password is required"; }
     if ($confirmPassword === '') { $Confirm_PasswordErr = "Confirm password is required"; }
     if ($newPassword && strlen($newPassword) < 6) {
@@ -227,16 +237,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
                             <p class="card-description">Update your personal details</p>
                         </div>
                         <div class="card-content">
-                            <form id="personalInfoForm" class="settings-form">
+                            <form id="personalInfoForm" class="settings-form" method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" onsubmit="return validatePersonalForm()">
+                                <input type="hidden" name="form_type" value="personal">
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label for="firstName">First Name *</label>
                                         <input 
                                             type="text" 
                                             id="firstName" 
-                                            name="firstName" 
-                                            placeholder="Juan"
-                                            value="Juan"
+                                            name="User_FirstName" 
+                                            placeholder=""
+                                            value="<?php echo $User_FirstName; ?>"
                                             required
                                         >
                                     </div>
@@ -246,9 +257,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
                                         <input 
                                             type="text" 
                                             id="lastName" 
-                                            name="lastName" 
-                                            placeholder="Dela Cruz"
-                                            value="Dela Cruz"
+                                            name="User_LastName" 
+                                            placeholder=""
+                                            value="<?php echo $User_LastName; ?>"
                                             required
                                         >
                                     </div>
@@ -259,11 +270,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
                                     <input 
                                         type="email" 
                                         id="email" 
-                                        name="email" 
-                                        placeholder="your.email@example.com"
-                                        value="juan.delacruz@example.com"
+                                        name="User_Email" 
+                                        placeholder=""
+                                        value="<?php echo $User_Email; ?>"
                                         required
                                     >
+                                    <p class="field-hint">Required for Notifications</p>
                                 </div>
 
                                 <div class="form-group">
@@ -271,11 +283,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
                                     <input 
                                         type="tel" 
                                         id="phone" 
-                                        name="phone" 
-                                        placeholder="+63 912 345 6789"
-                                        value="+63 912 345 6789"
+                                        name="User_PhoneNumber" 
+                                        placeholder=""
+                                        value="<?php echo $User_PhoneNumber; ?>"
                                     >
-                                    <p class="field-hint">Required for SMS notifications</p>
                                 </div>
 
                                 <button type="submit" class="btn btn-primary">
@@ -299,7 +310,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
                             <p class="card-description">Update your complete address</p>
                         </div>
                         <div class="card-content">
-                            <form id="addressForm" class="settings-form" method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
+                            <form id="addressForm" class="settings-form" method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" onsubmit="return validateAddressForm()">
+                                <input type="hidden" name="form_type" value="address">
+
                                 <!-- Hidden input fields for text values -->
                                 <input type="hidden" name="User_Region_Name" id="User_Region_Name">
                                 <input type="hidden" name="User_Province_Name" id="User_Province_Name">
@@ -307,27 +320,41 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
                                 <input type="hidden" name="User_Barangay_Name" id="User_Barangay_Name">
 
                             <div class="form-group">
+                            <label>Current Address</label>
+                            <div class="current-address-box">
+                                <strong>
+                                <?php
+                                    echo htmlspecialchars("$User_HouseNo, $User_Street, $User_Barangay_Name, $User_City_Name, $User_Province_Name, $User_Region_Name, Philippines");
+                                ?>
+                                </strong>
+                            </div>
+                            <small style="color:#6c757d;">You can update your address using the dropdowns below.</small>
+                            </div>
+
+                            <div class="form-group">
                                 <label for="region">Region *</label>
-                                <select type="text" id="region" name="User_Region" value="<?php echo $User_Region; ?>" ></select>
+                                <select type="text" id="region" name="User_Region" value="<?php echo $User_Region; ?>">
+                              
+                                </select>
                             </div>
 
                             <div class="form-group">
                                 <label for="province">Province *</label>
-                                <select id="province" name="User_Province" value="<?php echo $User_Province; ?>" >
+                                <select id="province" name="User_Province" >
                                     <option value="">Select province</option>
                                 </select>
                             </div>
 
                             <div class="form-group">
                                 <label for="city">City/Municipality *</label>
-                                <select id="city" name="User_City" value="<?php echo $User_City; ?>" >
+                                <select id="city" name="User_City" >
                                     <option value="">Select city/municipality</option>
                                 </select>
                             </div>
 
                             <div class="form-group">
                                 <label for="barangay">Barangay *</label>
-                                <select id="barangay" name="User_Barangay" value="<?php echo $User_Barangay; ?>" >
+                                <select id="barangay" name="User_Barangay" >
                                     <option value="">Select barangay</option>
                                 </select>
                             </div>
@@ -339,7 +366,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
                                         id="street" 
                                         name="User_Street" 
                                         placeholder="e.g., Rizal Street"
-                                        value="Rizal Street"
+                                        value="<?php echo $User_Street;?>"
                                         required
                                     >
                                 </div>
@@ -352,7 +379,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
                                             id="houseNumber" 
                                             name="User_HouseNo" 
                                             placeholder="e.g., 123"
-                                            value="123"
+                                            value="<?php echo $User_HouseNo;?>"
                                         >
                                     </div>
 
@@ -363,7 +390,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
                                             id="zipCode" 
                                             name="User_ZIP" 
                                             placeholder="e.g., 1106"
-                                            value="1106"
+                                            value="<?php echo $User_ZIP;?>"
                                             maxlength="4"
                                             pattern="[0-9]{4}"
                                         >
@@ -391,7 +418,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
                             <p class="card-description">Update your account password</p>
                         </div>
                         <div class="card-content">
-                            <form id="passwordForm" class="settings-form">
+                            <form id="passwordForm" class="settings-form" method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" onsubmit="return validatePasswordForm()">
+                                <input type="hidden" name="form_type" value="password">
                                 <div class="form-group">
                                     <label for="currentPassword">Current Password *</label>
                                     <div class="input-wrapper">
@@ -479,7 +507,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['form_type']) && $_POS
     
     <!-- Script for Address Selector -->
     <script src="ph-address-selector.js"></script>
-    
+
+    <script>
+    function setText(nameSel, hiddenId){
+        const opt = document.querySelector(nameSel + " option:checked");
+        document.getElementById(hiddenId).value = opt ? opt.text : "";
+    }
+    ["#region", "#province", "#city", "#barangay"].forEach((sel, i) => {
+        const ids = ["User_Region_Name","User_Province_Name","User_City_Name","User_Barangay_Name"];
+        document.querySelector(sel)?.addEventListener("change", () => setText(sel, ids[i]));
+        // initialize on load too
+        setText(sel, ids[i]);
+    });
+    </script>
+
     <script src="account_settings.js"></script>
 </body>
 </html>
