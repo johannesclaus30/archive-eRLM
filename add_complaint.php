@@ -17,8 +17,6 @@ if (isset($_SESSION["User_ID"])) {
     $User_Email = $row_edit["User_Email"];
 
 
-    
-
 } else {
     $User_ID = 1; // Guest
 
@@ -163,9 +161,8 @@ if (isset($_FILES['photoInput'])) {
         }
     }
 }
-    // ✅ If no upload errors occurred, show success message
-    echo "<script>alert('Complaint submitted successfully!');</script>";
-    echo "<script>window.location.href='add_complaint?notify=Complaint submitted successfully!';</script>";
+    $_SESSION["Complaint_ID"] = $Complaint_ID;
+    $alert = "added";
     }
 }
 ?>
@@ -190,10 +187,11 @@ if (isset($_FILES['photoInput'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- JQuery for Address Selector -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-
     <title>Submit Complaint - eReklamo</title>
     <link rel="stylesheet" href="add_complaint_design.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SweetAlert2 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 </head>
 <body>
     <!-- Header -->
@@ -535,6 +533,43 @@ if (isset($_FILES['photoInput'])) {
     <script src="../Admin/js/jQuery.js"></script>
 
 </script>
+
+<!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        <?php if ($_SERVER["REQUEST_METHOD"] == "POST"): ?>
+            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+            <script>
+                <?php if ($alert == "empty"): ?>
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Please enter a tracking number.',
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+                <?php elseif ($alert == "added"): ?>
+                Swal.fire({
+                    title: 'Success!',
+                    text: 'Complaint Submitted! Generating Tracking ID...',
+                    icon: 'success',
+                    showConfirmButton: false,
+                    timer: 1000
+                }).then(() => {
+                    window.location.href = 'tracking_page.php';
+                });
+                <?php elseif ($alert == "notfound"): ?>
+                Swal.fire({
+                    title: 'Not Found!',
+                    text: 'No complaint found with that tracking number.',
+                    icon: 'warning',
+                    confirmButtonText: 'OK'
+                });
+                <?php endif; ?>
+            </script>
+        <?php endif; ?>
+
+        </script>
+
 
 </body>
 </html>
