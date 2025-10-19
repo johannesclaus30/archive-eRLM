@@ -162,7 +162,6 @@ if (isset($_FILES['photoInput'])) {
     }
 }
     $_SESSION["Complaint_ID"] = $Complaint_ID;
-    $alert = "added";
     }
 }
 ?>
@@ -515,7 +514,7 @@ if (isset($_FILES['photoInput'])) {
         </div>
     </main>
 
-    <script src="add_complaint.js"></script>
+    <script src="add_complaint2.js"></script>
 
     <script>
     function setText(nameSel, hiddenId){
